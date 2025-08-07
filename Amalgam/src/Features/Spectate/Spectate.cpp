@@ -1,5 +1,30 @@
 #include "Spectate.h"
 
+void PreventDormantForSpectatedPlayer(CTFPlayer* pLocal, CTFPlayer* pTarget)
+{
+	if (!pLocal || !pTarget || pTarget == pLocal)
+		return;
+
+	auto pNetworkable = pTarget->GetClientNetworkable();
+	if (pNetworkable)
+	{
+		// simulate the entity being in the player's PVS
+		pNetworkable->NotifyShouldTransmit(SHOULDTRANSMIT_START);
+	}
+
+	// this should ensure the engine thinks the player is still visible
+	auto pResource = H::Entities.GetPR();
+	if (pResource)
+	{
+		int iIndex = pTarget->entindex();
+		if (iIndex > 0 && iIndex <= MAX_PLAYERS)
+		{
+			pResource->m_bAlive(iIndex) = pTarget->IsAlive();
+			pResource->m_iTeam(iIndex) = pTarget->m_iTeamNum();
+		}
+	}
+}
+
 void CSpectate::NetUpdateEnd(CTFPlayer* pLocal)
 {
 	if (!pLocal)
@@ -44,12 +69,22 @@ void CSpectate::NetUpdateEnd(CTFPlayer* pLocal)
 
 	m_pTargetTarget = pLocal->m_hObserverTarget().Get();
 	m_iTargetMode = pLocal->m_iObserverMode();
+
+	PreventDormantForSpectatedPlayer(pLocal, pEntity);
 }
 
 void CSpectate::NetUpdateStart(CTFPlayer* pLocal)
 {
 	if (!pLocal || m_iTarget == -1)
 		return;
+
+	// Also prevent dormant for the original target during network updates
+	if (m_pOriginalTarget)
+	{
+		auto pOriginalEntity = m_pOriginalTarget->As<CTFPlayer>();
+		if (pOriginalEntity)
+			PreventDormantForSpectatedPlayer(pLocal, pOriginalEntity);
+	}
 
 	pLocal->m_hObserverTarget().Set(m_pOriginalTarget);
 	pLocal->m_iObserverMode() = m_iOriginalMode;
@@ -71,7 +106,17 @@ void CSpectate::CreateMove(CTFPlayer* pLocal, CUserCmd* pCmd)
 		m_vOldView = pCmd->viewangles;
 	}
 	else
+	{
 		pCmd->viewangles = m_vOldView;
+		
+		// Prevent dormant state during CreateMove as well
+		if (m_iTarget != -1)
+		{
+			auto pTarget = I::ClientEntityList->GetClientEntity(I::EngineClient->GetPlayerForUserID(m_iTarget))->As<CTFPlayer>();
+			if (pTarget)
+				PreventDormantForSpectatedPlayer(pLocal, pTarget);
+		}
+	}
 }
 
 void CSpectate::SetTarget(int iTarget)

@@ -107,12 +107,23 @@ bool CTraceFilterWorldAndPropsOnly::ShouldHitEntity(IHandleEntity* pServerEntity
 	if (!pServerEntity || pServerEntity == pSkip)
 		return false;
 	if (pServerEntity->GetRefEHandle().GetSerialNumber() == (1 << 15))
-		return I::ClientEntityList->GetClientEntity(0) != pSkip;
+		return I::ClientEntityList && I::ClientEntityList->GetClientEntity(0) != pSkip;
 
 	auto pEntity = reinterpret_cast<CBaseEntity*>(pServerEntity);
-	if (iTeam == -1) iTeam = pSkip ? pSkip->m_iTeamNum() : 0;
+	if (!pEntity)
+		return false;
+	
+	if (iTeam == -1) iTeam = pSkip && pSkip->IsValid() ? pSkip->m_iTeamNum() : 0;
 
-	switch (pEntity->GetClassID())
+	// Safely get class ID with null check
+	ETFClassID classID;
+	try {
+		classID = pEntity->GetClassID();
+	} catch (...) {
+		return false;
+	}
+
+	switch (classID)
 	{
 	case ETFClassID::CBaseEntity:
 	case ETFClassID::CBaseDoor:
@@ -124,7 +135,7 @@ bool CTraceFilterWorldAndPropsOnly::ShouldHitEntity(IHandleEntity* pServerEntity
 	case ETFClassID::CFuncConveyor: return true;
 	case ETFClassID::CFuncRespawnRoomVisualizer:
 		if (nContentsMask & CONTENTS_PLAYERCLIP)
-			return pEntity->m_iTeamNum() != iTeam;
+			return pEntity->IsValid() && pEntity->m_iTeamNum() != iTeam;
 	}
 
 	return false;

@@ -140,4 +140,9 @@ public:
 	Vec3 GetRenderCenter();
 	int IsInValidTeam();
 	int SolidMask();
+
+	inline bool IsValid() const
+	{
+		return this != nullptr && !IsDormant();
+	}
 };

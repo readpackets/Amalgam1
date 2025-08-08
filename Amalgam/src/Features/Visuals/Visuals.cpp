@@ -841,8 +841,6 @@ void CVisuals::Store(CTFPlayer* pLocal)
 	}
 }
 
-
-
 void CVisuals::OverrideWorldTextures()
 {
 	auto uHash = FNV1A::Hash32(Vars::Visuals::World::WorldTexture.Value.c_str());

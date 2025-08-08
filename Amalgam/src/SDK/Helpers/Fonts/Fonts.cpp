@@ -2,17 +2,36 @@
 
 void CFonts::Reload(float flDPI)
 {
-	m_mFonts[FONT_ESP] = { "Verdana", int(12.f * flDPI), FONTFLAG_ANTIALIAS, 0 };
-	m_mFonts[FONT_INDICATORS] = { "Verdana", int(13.f * flDPI), FONTFLAG_ANTIALIAS, 0 };
+    m_mFonts.clear();
+    
+    m_mFonts[FONT_NITRO] = {
+        "Tahoma",
+        int(12.f * flDPI),
+        0,
+        0
+    };
 
-	for (auto& [_, fFont] : m_mFonts)
-	{
-		if (fFont.m_dwFont = I::MatSystemSurface->CreateFont())
-			I::MatSystemSurface->SetFontGlyphSet(fFont.m_dwFont, fFont.m_szName, fFont.m_nTall, fFont.m_nWeight, 0, 0, fFont.m_nFlags);
-	}
+    m_mFonts[FONT_ESP] = m_mFonts[FONT_NITRO];
+    m_mFonts[FONT_INDICATORS] = m_mFonts[FONT_NITRO];
+
+    for (auto& [eFont, fFont] : m_mFonts)
+    {
+        fFont.m_dwFont = I::MatSystemSurface->CreateFont();
+        if (fFont.m_dwFont)
+        {
+            I::MatSystemSurface->SetFontGlyphSet(
+                fFont.m_dwFont,
+                fFont.m_szName,
+                fFont.m_nTall,
+                fFont.m_nWeight,
+                0, 0,
+                fFont.m_nFlags
+            );
+        }
+    }
 }
 
 const Font_t& CFonts::GetFont(EFonts eFont)
 {
-	return m_mFonts[eFont];
+    return m_mFonts.at(eFont);
 }

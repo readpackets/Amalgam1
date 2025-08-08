@@ -184,6 +184,10 @@ namespace Vars
 			VA_LIST("Ticks", "Crit hack", "Spectators", "Ping", "Conditions", "Seed prediction"),
 			Ticks = 1 << 0, CritHack = 1 << 1, Spectators = 1 << 2, Ping = 1 << 3, Conditions = 1 << 4, SeedPrediction = 1 << 5);
 
+		CVarEnum(IndicatorStyle, "Indicator style", 0, VISUAL, nullptr,
+			VA_LIST("Default", "Text", "Nitro"),
+			Default, Text, Nitro);
+
 		CVar(BindsDisplay, "Binds display", DragBox_t(100, 100), NOBIND);
 		CVar(TicksDisplay, "Ticks display", DragBox_t(), NOBIND);
 		CVar(CritsDisplay, "Crits display", DragBox_t(), NOBIND);
@@ -369,13 +373,14 @@ namespace Vars
 			CVar(HuntsmanAddLow, "Huntsman add low", 0.f, NOSAVE | DEBUGVAR | SLIDER_CLAMP | SLIDER_PRECISION, 0.f, 20.f);
 			CVar(HuntsmanClamp, "Huntsman clamp", 5.f, NOSAVE | DEBUGVAR | SLIDER_CLAMP | SLIDER_PRECISION, 0.f, 10.f, 0.5f);
 			CVar(HuntsmanPullPoint, "Huntsman pull point", false, NOSAVE | DEBUGVAR);
+			CVar(ShowSplashSpots, "Show splash spots", false, NOSAVE | DEBUGVAR);
 			CVar(SplashPoints, "Splash points", 100, NOSAVE | DEBUGVAR | SLIDER_MIN, 1, 400, 5);
 			CVar(SplashGrates, "Splash grates", true, NOSAVE | DEBUGVAR);
 			CVar(SplashRotateX, "Splash Rx", 0.f, NOSAVE | DEBUGVAR | SLIDER_MIN | SLIDER_PRECISION, -1.f, 360.f);
 			CVar(SplashRotateY, "Splash Ry", -1.f, NOSAVE | DEBUGVAR | SLIDER_MIN | SLIDER_PRECISION, -1.f, 360.f);
 			CVar(SplashNthRoot, "Splash Nth root", 1.f, NOSAVE | DEBUGVAR | SLIDER_MIN | SLIDER_PRECISION, 0.5f, 2.f, 0.1f);
 			CVar(SplashCountDirect, "Direct splash count", 100, NOSAVE | DEBUGVAR | SLIDER_MIN, 1, 100);
-			CVar(SplashCountArc, "Arc splash count", 5, NOSAVE | DEBUGVAR | SLIDER_MIN, 1, 100);
+			CVar(SplashCountArc, "Arc splash count", 8, NOSAVE | DEBUGVAR | SLIDER_MIN, 1, 100); 
 			CVar(SplashTraceInterval, "Splash trace interval", 10, NOSAVE | DEBUGVAR, 1, 10);
 			CVar(SplashNormalSkip, "Splash normal skip", 1, NOSAVE | DEBUGVAR | SLIDER_MIN, 1, 10);
 			CVarEnum(SplashMode, "Splash mode", 0, NOSAVE | DEBUGVAR, nullptr,
@@ -770,6 +775,7 @@ namespace Vars
 
 		SUBNAMESPACE_BEGIN(Viewmodel)
 			CVar(CrosshairAim, "Crosshair aim position", false, VISUAL);
+			CVar(CrosshairAimPrediction, "Crosshair aim prediction", false, VISUAL);
 			CVar(ViewmodelAim, "Viewmodel aim position", false, VISUAL);
 			CVar(OffsetX, VA_LIST("Offset X", "Viewmodel offset X"), 0.f, VISUAL | SLIDER_PRECISION, -45.f, 45.f, 5.f);
 			CVar(OffsetY, VA_LIST("Offset Y", "Viewmodel offset Y"), 0.f, VISUAL | SLIDER_PRECISION, -45.f, 45.f, 5.f);
@@ -833,9 +839,9 @@ namespace Vars
 		SUBNAMESPACE_END(Hitbox);
 
 		SUBNAMESPACE_BEGIN(Simulation)
-			Enum(Style, Off, Line, Separators, Spaced, Arrows, Boxes);
+			Enum(Style, Off, Line, Separators, Spaced, Arrows, Boxes, Nitro);
 			CVarValues(PlayerPath, "Player path", 0, VISUAL, nullptr,
-				"Off", "Line", "Separators", "Spaced", "Arrows", "Boxes");
+				"Off", "Line", "Separators", "Spaced", "Arrows", "Boxes", "Nitro");
 			CVarValues(ProjectilePath, "Projectile path", 0, VISUAL, nullptr,
 				"Off", "Line", "Separators", "Spaced", "Arrows", "Boxes");
 			CVarValues(TrajectoryPath, "Trajectory path", 0, VISUAL, nullptr,

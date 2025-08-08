@@ -1672,10 +1672,189 @@ static inline void DrawVisuals(int iResult, Target_t& tTarget, std::vector<Vec3>
 
 			if (bPlayerPath)
 			{
-				if (Vars::Colors::PlayerPathIgnoreZ.Value.a)
-					G::PathStorage.emplace_back(vPlayerPath, Vars::Visuals::Simulation::Timed.Value ? -int(vPlayerPath.size()) : I::GlobalVars->curtime + Vars::Visuals::Simulation::DrawDuration.Value, Vars::Colors::PlayerPathIgnoreZ.Value, Vars::Visuals::Simulation::PlayerPath.Value);
-				if (Vars::Colors::PlayerPath.Value.a)
-					G::PathStorage.emplace_back(vPlayerPath, Vars::Visuals::Simulation::Timed.Value ? -int(vPlayerPath.size()) : I::GlobalVars->curtime + Vars::Visuals::Simulation::DrawDuration.Value, Vars::Colors::PlayerPath.Value, Vars::Visuals::Simulation::PlayerPath.Value, true);
+				if (Vars::Visuals::Simulation::PlayerPath.Value == Vars::Visuals::Simulation::StyleEnum::Nitro) // is this a really bad way to do it? dont know
+				{
+					if (!vPlayerPath.empty())
+					{
+						std::vector<std::vector<Vec3>> vAirSegments;
+						std::vector<std::vector<Vec3>> vGroundSegments;
+						std::vector<Vec3> vCurrentSegment;
+						bool bLastInAir = false;
+						bool bFirstPoint = true;
+
+						for (size_t i = 0; i < vPlayerPath.size(); i++)
+						{
+							const float flPlayerHeight = 72.0f; 
+							Vec3 vTraceStart = vPlayerPath[i] + Vec3(0, 0, flPlayerHeight * 0.33f); 
+							Vec3 vTraceEnd = vPlayerPath[i] - Vec3(0, 0, 512.0f); 
+							
+							CGameTrace trace = {};
+							CTraceFilterWorldAndPropsOnly filter = {};
+							SDK::Trace(vTraceStart, vTraceEnd, MASK_SOLID, &filter, &trace);
+							
+							CGameTrace traceLeft = {};
+							CGameTrace traceRight = {};
+							CGameTrace traceFront = {};
+							CGameTrace traceBack = {};
+							
+							const float flOffset = 16.0f;
+							
+							Vec3 vForward, vRight;
+							if (i > 0)
+							{
+								Vec3 vDir = (vPlayerPath[i] - vPlayerPath[i-1]).Normalized2D();
+								vForward = Vec3(vDir.x, vDir.y, 0.0f);
+								vRight = Vec3(-vDir.y, vDir.x, 0.0f);
+							}
+							else
+							{
+								vForward = Vec3(1.0f, 0.0f, 0.0f);
+								vRight = Vec3(0.0f, 1.0f, 0.0f);
+							}
+							
+							SDK::Trace(vTraceStart + vRight * flOffset, vTraceEnd + vRight * flOffset, MASK_SOLID, &filter, &traceRight);
+							SDK::Trace(vTraceStart - vRight * flOffset, vTraceEnd - vRight * flOffset, MASK_SOLID, &filter, &traceLeft);
+							SDK::Trace(vTraceStart + vForward * flOffset, vTraceEnd + vForward * flOffset, MASK_SOLID, &filter, &traceFront);
+							SDK::Trace(vTraceStart - vForward * flOffset, vTraceEnd - vForward * flOffset, MASK_SOLID, &filter, &traceBack);
+							
+							const float flMainDistance = (vPlayerPath[i] - trace.endpos).Length();
+							const float flLeftDistance = (vPlayerPath[i] - traceLeft.endpos).Length();
+							const float flRightDistance = (vPlayerPath[i] - traceRight.endpos).Length();
+							const float flFrontDistance = (vPlayerPath[i] - traceFront.endpos).Length();
+							const float flBackDistance = (vPlayerPath[i] - traceBack.endpos).Length();
+							
+							const float flGroundDistance = std::min<float>({
+								flMainDistance,
+								flLeftDistance,
+								flRightDistance,
+								flFrontDistance,
+								flBackDistance
+							});
+							
+							const bool bTraceValid = (trace.fraction < 1.0f && !trace.allsolid) ||
+												(traceLeft.fraction < 1.0f && !traceLeft.allsolid) ||
+												(traceRight.fraction < 1.0f && !traceRight.allsolid) ||
+												(traceFront.fraction < 1.0f && !traceFront.allsolid) ||
+												(traceBack.fraction < 1.0f && !traceBack.allsolid);
+							
+							bool bVelocityBasedAir = false;
+							if (i > 0 && i < vPlayerPath.size() - 1)
+							{
+								const Vec3 vPrevVelocity = (vPlayerPath[i] - vPlayerPath[i-1]) * (1.0f / TICK_INTERVAL);
+								const Vec3 vNextVelocity = (vPlayerPath[i+1] - vPlayerPath[i]) * (1.0f / TICK_INTERVAL);
+								const Vec3 vAcceleration = (vNextVelocity - vPrevVelocity) * (1.0f / TICK_INTERVAL);
+								
+								const Vec3 vPrevVelocity2D(vPrevVelocity.x, vPrevVelocity.y, 0.0f);
+								const Vec3 vNextVelocity2D(vNextVelocity.x, vNextVelocity.y, 0.0f);
+								const Vec3 vAcceleration2D = (vNextVelocity2D - vPrevVelocity2D) * (1.0f / TICK_INTERVAL);
+								
+								float flDirectionChange = 0.0f;
+								if (vPrevVelocity2D.Length() > 50.0f && vNextVelocity2D.Length() > 50.0f)
+								{
+									Vec3 vPrevDir = vPrevVelocity2D; vPrevDir.Normalize();
+									Vec3 vNextDir = vNextVelocity2D; vNextDir.Normalize();
+									flDirectionChange = std::acos(std::clamp(vPrevDir.Dot(vNextDir), -1.0f, 1.0f));
+								}
+								
+								bVelocityBasedAir = 
+									(fabs(vAcceleration.z) > 350.0f) || 
+									(fabs(vNextVelocity.z) > 120.0f && flGroundDistance > 48.0f) ||
+									(flDirectionChange > 0.3f && vAcceleration2D.Length() > 500.0f && flGroundDistance > 24.0f) ||
+									(vPrevVelocity.z > 0.0f && vNextVelocity.z > 0.0f && flGroundDistance > 36.0f);
+							}
+							
+							bool bGroundEntityValid = false;
+							if (tTarget.m_pEntity)
+							{
+								CBaseEntity* pGroundEnt = tTarget.m_pEntity->As<CTFPlayer>()->m_hGroundEntity();
+								bGroundEntityValid = pGroundEnt && pGroundEnt->entindex() > 0;
+							}
+							
+							const float flGroundThreshold = 24.0f; 
+							const bool bOnGround = (bTraceValid && flGroundDistance <= flGroundThreshold && !bVelocityBasedAir) || 
+												 bGroundEntityValid;
+							const bool bInAir = !bOnGround;
+							
+							if (bFirstPoint)
+							{
+								bLastInAir = bInAir;
+								bFirstPoint = false;
+							}
+
+							if (bInAir != bLastInAir && !vCurrentSegment.empty())
+							{
+								const Vec3& vPrevPoint = vCurrentSegment.back();
+								const Vec3& vNextPoint = vPlayerPath[i];
+								
+								const int iTransitionPoints = bLastInAir ? 3 : 2; 
+								for (int j = 1; j <= iTransitionPoints; j++)
+								{
+									const float flT = float(j) / float(iTransitionPoints + 1);
+									const float flSmoothed = flT * flT * (3.0f - 2.0f * flT); 
+									const Vec3 vInterpPoint = vPrevPoint + (vNextPoint - vPrevPoint) * flSmoothed;
+									vCurrentSegment.push_back(vInterpPoint);
+								}
+								
+								if (bLastInAir)
+									vAirSegments.push_back(vCurrentSegment);
+								else
+									vGroundSegments.push_back(vCurrentSegment);
+								vCurrentSegment.clear();
+							}
+
+							vCurrentSegment.push_back(vPlayerPath[i]);
+							bLastInAir = bInAir;
+						}
+
+						if (!vCurrentSegment.empty())
+						{
+							if (bLastInAir)
+								vAirSegments.push_back(vCurrentSegment);
+							else
+								vGroundSegments.push_back(vCurrentSegment);
+						}
+						for (auto& vSegment : vAirSegments)
+						{
+							Color_t airColor = Vars::Colors::PlayerPath.Value;
+							airColor.r = std::min<byte>(255, static_cast<byte>(airColor.r + 30));
+							airColor.g = std::min<byte>(255, static_cast<byte>(airColor.g + 30));
+							airColor.b = std::min<byte>(255, static_cast<byte>(airColor.b + 30));
+							
+							Color_t airColorIgnoreZ = Vars::Colors::PlayerPathIgnoreZ.Value;
+							airColorIgnoreZ.r = std::min<byte>(255, static_cast<byte>(airColorIgnoreZ.r + 30));
+							airColorIgnoreZ.g = std::min<byte>(255, static_cast<byte>(airColorIgnoreZ.g + 30));
+							airColorIgnoreZ.b = std::min<byte>(255, static_cast<byte>(airColorIgnoreZ.b + 30));
+							
+							const float flDuration = Vars::Visuals::Simulation::Timed.Value ? 
+								-int(vSegment.size()) : 
+								I::GlobalVars->curtime + Vars::Visuals::Simulation::DrawDuration.Value;
+							
+							if (Vars::Colors::PlayerPathIgnoreZ.Value.a)
+								G::PathStorage.emplace_back(vSegment, flDuration, airColorIgnoreZ, Vars::Visuals::Simulation::StyleEnum::Separators);
+							if (Vars::Colors::PlayerPath.Value.a)
+								G::PathStorage.emplace_back(vSegment, flDuration, airColor, Vars::Visuals::Simulation::StyleEnum::Separators, true);
+						}
+
+						for (auto& vSegment : vGroundSegments)
+						{
+							const float flDuration = Vars::Visuals::Simulation::Timed.Value ? 
+								-int(vSegment.size()) : 
+								I::GlobalVars->curtime + Vars::Visuals::Simulation::DrawDuration.Value;
+							
+							if (Vars::Colors::PlayerPathIgnoreZ.Value.a)
+								G::PathStorage.emplace_back(vSegment, flDuration, Vars::Colors::PlayerPathIgnoreZ.Value, Vars::Visuals::Simulation::StyleEnum::Line);
+							if (Vars::Colors::PlayerPath.Value.a)
+								G::PathStorage.emplace_back(vSegment, flDuration, Vars::Colors::PlayerPath.Value, Vars::Visuals::Simulation::StyleEnum::Line, true);
+						}
+					}
+				}
+				else
+				{
+					if (Vars::Colors::PlayerPathIgnoreZ.Value.a)
+						G::PathStorage.emplace_back(vPlayerPath, Vars::Visuals::Simulation::Timed.Value ? -int(vPlayerPath.size()) : I::GlobalVars->curtime + Vars::Visuals::Simulation::DrawDuration.Value, Vars::Colors::PlayerPathIgnoreZ.Value, Vars::Visuals::Simulation::PlayerPath.Value);
+					if (Vars::Colors::PlayerPath.Value.a)
+						G::PathStorage.emplace_back(vPlayerPath, Vars::Visuals::Simulation::Timed.Value ? -int(vPlayerPath.size()) : I::GlobalVars->curtime + Vars::Visuals::Simulation::DrawDuration.Value, Vars::Colors::PlayerPath.Value, Vars::Visuals::Simulation::PlayerPath.Value, true);
+				}
 			}
 			if (bProjectilePath)
 			{

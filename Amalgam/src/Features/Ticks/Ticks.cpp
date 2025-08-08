@@ -398,36 +398,79 @@ int CTicks::GetMinimumTicksNeeded(CTFWeaponBase* pWeapon)
 	return (GetShotsWithinPacket(pWeapon) - 1) * std::ceilf(pWeapon->GetFireRate() / TICK_INTERVAL) + iDelay;
 }
 
-void CTicks::Draw(CTFPlayer* pLocal)
-{
-	if (!(Vars::Menu::Indicators.Value & Vars::Menu::IndicatorsEnum::Ticks) || !pLocal->IsAlive())
-		return;
+void CTicks::Draw(CTFPlayer* pLocal) 
+{ 
+    if (!(Vars::Menu::Indicators.Value & Vars::Menu::IndicatorsEnum::Ticks) || !pLocal->IsAlive()) 
+        return; 
 
-	const DragBox_t dtPos = Vars::Menu::TicksDisplay.Value;
-	const auto& fFont = H::Fonts.GetFont(FONT_INDICATORS);
+    const DragBox_t dtPos = Vars::Menu::TicksDisplay.Value; 
+    const auto& fFont = H::Fonts.GetFont(FONT_INDICATORS); 
 
-	if (!m_bSpeedhack)
-	{
-		int iChoke = std::max(I::ClientState->chokedcommands - (F::AntiAim.YawOn() ? F::AntiAim.AntiAimTicks() : 0), 0);
-		int iTicks = std::clamp(m_iShiftedTicks + iChoke, 0, m_iMaxShift);
-		float flRatio = float(iTicks) / m_iMaxShift;
-		int iSizeX = H::Draw.Scale(100, Scale_Round), iSizeY = H::Draw.Scale(12, Scale_Round);
-		int iPosX = dtPos.x - iSizeX / 2, iPosY = dtPos.y + fFont.m_nTall + H::Draw.Scale(4) + 1;
+    if (!m_bSpeedhack) 
+    { 
+        int iChoke = std::max(I::ClientState->chokedcommands - (F::AntiAim.YawOn() ? F::AntiAim.AntiAimTicks() : 0), 0); 
+        int iTicks = std::clamp(m_iShiftedTicks + iChoke, 0, m_iMaxShift); 
+        float flRatio = float(iTicks) / m_iMaxShift; 
+        
+        if (Vars::Menu::IndicatorStyle.Value == Vars::Menu::IndicatorStyleEnum::Text) 
+        { 
+            if (m_iWait) 
+            { 
+                H::Draw.StringOutlined(fFont, dtPos.x, dtPos.y - fFont.m_nTall / 2 - 1, Vars::Menu::Theme::Active.Value, Color_t(0, 0, 0, 255), ALIGN_TOP, "Not Ready");
+            } 
+            else 
+            { 
+                H::Draw.StringOutlined(fFont, dtPos.x, dtPos.y - fFont.m_nTall / 2 - 1, Vars::Menu::Theme::Active.Value, Color_t(0, 0, 0, 255), ALIGN_TOP, std::format("Ticks {}/{}", iTicks, m_iMaxShift).c_str()); 
+            } 
+            return; 
+        }
+        if (Vars::Menu::IndicatorStyle.Value == Vars::Menu::IndicatorStyleEnum::Default) 
+        { 
+            H::Draw.StringOutlined(fFont, dtPos.x, dtPos.y - fFont.m_nTall / 2 - 1, Vars::Menu::Theme::Active.Value, Color_t(0, 0, 0, 255), ALIGN_TOP, std::format("{} / {}", iTicks, m_iMaxShift).c_str()); 
+            
+            int iSizeX = H::Draw.Scale(90, Scale_Round), iSizeY = H::Draw.Scale(7, Scale_Round); 
+            int iPosX = dtPos.x - iSizeX / 2, iPosY = dtPos.y + fFont.m_nTall + 2; 
 
-		H::Draw.StringOutlined(fFont, dtPos.x, dtPos.y + 2, Vars::Menu::Theme::Active.Value, Vars::Menu::Theme::Background.Value, ALIGN_TOP, std::format("Ticks {} / {}", iTicks, m_iMaxShift).c_str());
-		if (m_iWait)
-			H::Draw.StringOutlined(fFont, dtPos.x, dtPos.y + fFont.m_nTall + H::Draw.Scale(18, Scale_Round) + 1, Vars::Menu::Theme::Active.Value, Vars::Menu::Theme::Background.Value, ALIGN_TOP, "Not Ready");
+            H::Draw.Line(iPosX - 1, iPosY - 1, iPosX + iSizeX, iPosY - 1, Color_t(0, 0, 0, 255)); 
+            H::Draw.Line(iPosX + iSizeX, iPosY - 1, iPosX + iSizeX, iPosY + iSizeY, Color_t(0, 0, 0, 255)); 
+            H::Draw.Line(iPosX + iSizeX, iPosY + iSizeY, iPosX - 1, iPosY + iSizeY, Color_t(0, 0, 0, 255)); 
+            H::Draw.Line(iPosX - 1, iPosY + iSizeY, iPosX - 1, iPosY - 1, Color_t(0, 0, 0, 255)); 
 
-		H::Draw.LineRoundRect(iPosX, iPosY, iSizeX, iSizeY, H::Draw.Scale(3, Scale_Round), Vars::Menu::Theme::Accent.Value, 16);
-		if (flRatio)
+            if (flRatio > 0.0f) { 
+                Color_t barColor = m_iWait ? Color_t(0xAD, 0xBA, 0xC7, 255) : Vars::Menu::Theme::Accent.Value; 
+                int iBarWidth = iSizeX * flRatio; 
+
+                H::Draw.FillRect(iPosX, iPosY, iBarWidth, iSizeY, barColor); 
+            }
+            
+            if (m_iWait) 
+            { 
+                H::Draw.StringOutlined(fFont, dtPos.x, dtPos.y + fFont.m_nTall + H::Draw.Scale(12, Scale_Round), Vars::Menu::Theme::Active.Value, Color_t(0, 0, 0, 255), ALIGN_TOP, "Not Ready"); 
+            } 
+        } 
+        else if (Vars::Menu::IndicatorStyle.Value == Vars::Menu::IndicatorStyleEnum::Nitro)
 		{
-			iSizeX -= H::Draw.Scale(2, Scale_Ceil) * 2, iSizeY -= H::Draw.Scale(2, Scale_Ceil) * 2;
-			iPosX += H::Draw.Scale(2, Scale_Round), iPosY += H::Draw.Scale(2, Scale_Round);
-			H::Draw.StartClipping(iPosX, iPosY, iSizeX * flRatio, iSizeY);
-			H::Draw.FillRoundRect(iPosX, iPosY, iSizeX, iSizeY, H::Draw.Scale(3, Scale_Round), Vars::Menu::Theme::Accent.Value, 16);
-			H::Draw.EndClipping();
-		}
-	}
-	else
-		H::Draw.StringOutlined(fFont, dtPos.x, dtPos.y + 2, Vars::Menu::Theme::Active.Value, Vars::Menu::Theme::Background.Value, ALIGN_TOP, std::format("Speedhack x{}", Vars::Speedhack::Amount.Value).c_str());
+			int iSizeX = H::Draw.Scale(90, Scale_Round), iSizeY = H::Draw.Scale(7, Scale_Round);
+			int iPosX = dtPos.x - iSizeX / 2, iPosY = dtPos.y + fFont.m_nTall + 2; 
+
+			H::Draw.StringOutlined(fFont, dtPos.x, dtPos.y + 2, Vars::Menu::Theme::Active.Value, Color_t(0, 0, 0, 255), ALIGN_TOP, std::format("Ticks {} / {}", iTicks, m_iMaxShift).c_str()); 
+			if (m_iWait) 
+				H::Draw.StringOutlined(fFont, dtPos.x, dtPos.y + fFont.m_nTall + H::Draw.Scale(12, Scale_Round), Vars::Menu::Theme::Active.Value, Color_t(0, 0, 0, 255), ALIGN_TOP, "Not Ready"); 
+
+			H::Draw.FillRoundRect(iPosX, iPosY, iSizeX, iSizeY, H::Draw.Scale(3, Scale_Round), Vars::Menu::Theme::Background.Value, 16); 
+						
+			if (flRatio > 0.0f) 
+			{ 
+				Color_t barColor = m_iWait ? Color_t(0xAD, 0xBA, 0xC7, 255) : Vars::Menu::Theme::Accent.Value; 
+				int iBarWidth = iSizeX * flRatio; 
+
+				H::Draw.FillRoundRect(iPosX, iPosY, iBarWidth, iSizeY, H::Draw.Scale(3, Scale_Round), barColor, 16); 
+			} 
+		} 
+        return; 
+    } 
+    else 
+    { 
+        H::Draw.StringOutlined(fFont, dtPos.x, dtPos.y - fFont.m_nTall / 2 - 1, Vars::Menu::Theme::Active.Value, Color_t(0, 0, 0, 255), ALIGN_TOP, std::format("Speedhack x{}", Vars::Speedhack::Amount.Value).c_str()); 
+    } 
 }

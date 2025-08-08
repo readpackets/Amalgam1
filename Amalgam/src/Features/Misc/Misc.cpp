@@ -63,7 +63,7 @@ void CMisc::AutoJump(CTFPlayer* pLocal, CUserCmd* pCmd)
 	}
 
 	if (Vars::Misc::Game::AntiCheatCompatibility.Value)
-	{	// prevent more than 9 bhops occurring. if a server has this under that threshold they're retarded anyways
+	{	// prevent more than 9 bhops occurring. if a server has this under that threshold they're retarded anyways - i approve/sean
 		static int iJumps = 0;
 		if (bCurGrounded)
 		{

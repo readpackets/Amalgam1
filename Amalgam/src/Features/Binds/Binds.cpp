@@ -160,8 +160,6 @@ void CBinds::Run(CTFPlayer* pLocal, CTFWeaponBase* pWeapon)
 	}
 }
 
-
-
 bool CBinds::GetBind(int iID, Bind_t* pBind)
 {
 	if (iID > DEFAULT_BIND && iID < m_vBinds.size())

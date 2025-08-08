@@ -624,7 +624,7 @@ void CMenu::MenuVisuals(int iTab)
 					}
 					PopTransparent();
 				} EndSection();
-				if (Section("Out of FOV arrows", 8))
+				if (Section("Out of FOV indicators", 8))
 				{
 					FToggle(Vars::ESP::FOVArrows::Enabled);
 					FSlider(Vars::ESP::FOVArrows::Offset, FSliderEnum::Left);
@@ -1175,6 +1175,7 @@ void CMenu::MenuVisuals(int iTab)
 				{
 					FToggle(Vars::Visuals::Viewmodel::CrosshairAim, FToggleEnum::Left);
 					FToggle(Vars::Visuals::Viewmodel::ViewmodelAim, FToggleEnum::Right);
+					FToggle(Vars::Visuals::Viewmodel::CrosshairAimPrediction, FToggleEnum::Left);
 					FSlider(Vars::Visuals::Viewmodel::OffsetX, FSliderEnum::Left);
 					FSlider(Vars::Visuals::Viewmodel::Pitch, FSliderEnum::Right);
 					FSlider(Vars::Visuals::Viewmodel::OffsetY, FSliderEnum::Left);
@@ -1370,6 +1371,7 @@ void CMenu::MenuVisuals(int iTab)
 				if (Section("Indicators"))
 				{
 					FDropdown(Vars::Menu::Indicators);
+					FDropdown(Vars::Menu::IndicatorStyle);
 					if (FSlider(Vars::Menu::Scale))
 						H::Fonts.Reload(Vars::Menu::Scale[DEFAULT_BIND]);
 					FToggle(Vars::Menu::CheapText);
@@ -2729,7 +2731,7 @@ void CMenu::MenuSettings(int iTab)
 			} EndSection();
 			SetCursorPosX(GetCursorPosX() + 8);
 			PushStyleColor(ImGuiCol_Text, F::Render.Inactive.Value);
-			FText("Built @ " __DATE__ ", " __TIME__ ", " __CONFIGURATION__);
+			FText("Built By Sean " __DATE__ ", " __TIME__ ", " __CONFIGURATION__);
 
 			PopStyleColor();
 
@@ -2962,7 +2964,7 @@ void CMenu::MenuSettings(int iTab)
 							sInfo = VK2STR(_tBind.m_iKey);
 							break;
 						case BindEnum::Class:
-							sType = "class";
+							sType = "Class";
 							switch (_tBind.m_iInfo)
 							{
 							case BindEnum::ClassEnum::Scout: { sInfo = "scout"; break; }
@@ -2977,7 +2979,7 @@ void CMenu::MenuSettings(int iTab)
 							}
 							break;
 						case BindEnum::WeaponType:
-							sType = "weapon";
+							sType = "Weapon";
 							switch (_tBind.m_iInfo)
 							{
 							case BindEnum::WeaponTypeEnum::Hitscan: { sInfo = "hitscan"; break; }
@@ -2987,7 +2989,7 @@ void CMenu::MenuSettings(int iTab)
 							}
 							break;
 						case BindEnum::ItemSlot:
-							sType = "slot";
+							sType = "Slot";
 							sInfo = std::format("{}", _tBind.m_iInfo + 1);
 							break;
 						}
@@ -3854,9 +3856,9 @@ void CMenu::DrawBinds()
 					case BindEnum::Key:
 						switch (tBind.m_iInfo)
 						{
-						case BindEnum::KeyEnum::Hold: { sType = "hold"; break; }
-						case BindEnum::KeyEnum::Toggle: { sType = "toggle"; break; }
-						case BindEnum::KeyEnum::DoubleClick: { sType = "double"; break; }
+						case BindEnum::KeyEnum::Hold: { sType = "Hold"; break; }
+						case BindEnum::KeyEnum::Toggle: { sType = "Toggle"; break; }
+						case BindEnum::KeyEnum::DoubleClick: { sType = "Double"; break; }
 						}
 						sInfo = VK2STR(tBind.m_iKey);
 						break;
@@ -3909,18 +3911,54 @@ void CMenu::DrawBinds()
 	if (info != old)
 		SetNextWindowPos({ float(info.x), float(info.y) }, ImGuiCond_Always);
 
-	float flNameWidth = 0, flInfoWidth = 0, flStateWidth = 0;
+	float flTypeWidth = 0, flNameWidth = 0, flKeyWidth = 0, flStatusWidth = 0;
 	PushFont(F::Render.FontSmall);
-	for (auto& [sName, sInfo, sState, iBind, tBind] : vInfo)
+	for (auto& [sName, sType, sKey, iBind, tBind] : vInfo)
 	{
+		flTypeWidth = std::max(flTypeWidth, FCalcTextSize(sType.c_str()).x);
 		flNameWidth = std::max(flNameWidth, FCalcTextSize(sName).x);
-		flInfoWidth = std::max(flInfoWidth, FCalcTextSize(sInfo.c_str()).x);
-		flStateWidth = std::max(flStateWidth, FCalcTextSize(sState.c_str()).x);
+		flKeyWidth = std::max(flKeyWidth, FCalcTextSize(sKey.c_str()).x);
+		
+		bool isAimTypeBind = false;
+		bool isFakelagBind = false;
+		for (auto* pVar : tBind.m_vVars) {
+			if (pVar == &Vars::Aimbot::General::AimType) {
+				isAimTypeBind = true;
+				break;
+			}
+			else if (pVar == &Vars::Fakelag::Fakelag) {
+				isFakelagBind = true;
+				break;
+			}
+		}
+		
+		if (tBind.m_bActive && isAimTypeBind) {
+			const char* aimTypeNames[] = { "Off", "Plain", "Smooth", "Silent", "Locking", "Assistive" };
+			int currentAimType = Vars::Aimbot::General::AimType.Value;
+			if (currentAimType >= 0 && currentAimType < 6) {
+				flStatusWidth = std::max(flStatusWidth, FCalcTextSize(aimTypeNames[currentAimType]).x);
+			} else {
+				flStatusWidth = std::max(flStatusWidth, FCalcTextSize("On").x);
+			}
+		} else if (tBind.m_bActive && isFakelagBind) {
+			const char* fakelagTypeNames[] = { "Off", "Plain", "Random", "Adaptive" };
+			int currentFakelagType = Vars::Fakelag::Fakelag.Value;
+			if (currentFakelagType >= 0 && currentFakelagType < 4) {
+				flStatusWidth = std::max(flStatusWidth, FCalcTextSize(fakelagTypeNames[currentFakelagType]).x);
+			} else {
+				flStatusWidth = std::max(flStatusWidth, FCalcTextSize("On").x);
+			}
+		} else {
+			flStatusWidth = std::max(flStatusWidth, FCalcTextSize(tBind.m_bActive ? "On" : "Off").x);
+		}
 	}
-	PopFont();
-	flNameWidth += H::Draw.Scale(9), flInfoWidth += H::Draw.Scale(9), flStateWidth += H::Draw.Scale(9);
+		PopFont();
+	flTypeWidth += H::Draw.Scale(9);
+	flNameWidth += H::Draw.Scale(9);
+	flKeyWidth += H::Draw.Scale(5);
+	flStatusWidth += H::Draw.Scale(9);
 
-	float flWidth = flNameWidth + flInfoWidth + flStateWidth + (m_bIsOpen ? H::Draw.Scale(113) : H::Draw.Scale(14));
+	float flWidth = flTypeWidth + flNameWidth + flKeyWidth + flStatusWidth + (m_bIsOpen ? H::Draw.Scale(113) : H::Draw.Scale(14));
 	float flHeight = H::Draw.Scale(18 * vInfo.size() + (Vars::Menu::BindWindowTitle.Value ? 42 : 12));
 	SetNextWindowSize({ flWidth, flHeight });
 	PushStyleVar(ImGuiStyleVar_WindowMinSize, { H::Draw.Scale(40), H::Draw.Scale(40) });
@@ -3928,11 +3966,24 @@ void CMenu::DrawBinds()
 	{
 		ImVec2 vWindowPos = GetWindowPos();
 
-		if (Vars::Menu::BindWindowTitle.Value)
-			RenderTwoToneBackground(H::Draw.Scale(28), F::Render.Background0, F::Render.Background0p5, F::Render.Background2);
-		else
-			RenderBackground(F::Render.Background0p5, F::Render.Background2);
-
+	if (Vars::Menu::BindWindowTitle.Value)
+	{
+		RenderBackground(F::Render.Background0p5);
+	
+		ImDrawList* pDrawList = GetWindowDrawList();
+		ImVec2 vDrawPos = GetDrawPos();
+		ImVec2 vSize = GetWindowSize();
+	
+			pDrawList->AddRectFilled(
+				{ vDrawPos.x + H::Draw.Scale(5), vDrawPos.y + H::Draw.Scale(28) - H::Draw.Scale() },
+				{ vDrawPos.x + vSize.x - H::Draw.Scale(5), vDrawPos.y + H::Draw.Scale(28) },
+				(ImU32)F::Render.Accent
+			);
+	}
+	else
+	{
+	RenderBackground(F::Render.Background0p5);
+}
 		info.x = vWindowPos.x; info.y = vWindowPos.y; old = info;
 		if (m_bIsOpen)
 			FSet(Vars::Menu::BindsDisplay, info);
@@ -3941,9 +3992,8 @@ void CMenu::DrawBinds()
 		if (Vars::Menu::BindWindowTitle.Value)
 		{
 			SetCursorPos({ H::Draw.Scale(8), H::Draw.Scale(6) });
-			IconImage(ICON_MD_KEYBOARD);
 			PushFont(F::Render.FontLarge);
-			SetCursorPos({ H::Draw.Scale(30), H::Draw.Scale(7) });
+			SetCursorPos({ H::Draw.Scale(8), H::Draw.Scale(7) });
 			FText("Binds");
 			PopFont();
 
@@ -3951,24 +4001,68 @@ void CMenu::DrawBinds()
 		}
 
 		PushFont(F::Render.FontSmall);
-		int i = 0; for (auto& [sName, sInfo, sState, iBind, tBind] : vInfo)
+		int i = 0; for (auto& [sName, sType, sKey, iBind, tBind] : vInfo)
 		{
 			float flPosX = 0;
 
 			if (m_bIsOpen)
 				PushTransparent(!F::Binds.WillBeEnabled(iBind), true);
 
+			// First column: Bind Type (behavior)
 			SetCursorPos({ flPosX += H::Draw.Scale(12), H::Draw.Scale(iListStart + 18 * i) });
 			PushStyleColor(ImGuiCol_Text, tBind.m_bActive ? F::Render.Accent.Value : F::Render.Inactive.Value);
+			FText(sType.c_str());
+			PopStyleColor();
+
+			// Second column: Bind Name
+			SetCursorPos({ flPosX += flTypeWidth, H::Draw.Scale(iListStart + 18 * i) });
+			PushStyleColor(ImGuiCol_Text, tBind.m_bActive ? F::Render.Active.Value : F::Render.Inactive.Value);
 			FText(sName);
 			PopStyleColor();
 
+			// Third column: Key
 			SetCursorPos({ flPosX += flNameWidth, H::Draw.Scale(iListStart + 18 * i) });
 			PushStyleColor(ImGuiCol_Text, tBind.m_bActive ? F::Render.Active.Value : F::Render.Inactive.Value);
-			FText(sInfo.c_str());
+			FText(sKey.c_str());
+			PopStyleColor();
 
-			SetCursorPos({ flPosX += flInfoWidth, H::Draw.Scale(iListStart + 18 * i) });
-			FText(sState.c_str());
+			// Fourth column: ON/OFF indicator
+			SetCursorPos({ flPosX += flKeyWidth, H::Draw.Scale(iListStart + 18 * i) });
+			PushStyleColor(ImGuiCol_Text, tBind.m_bActive ? F::Render.Accent.Value : F::Render.Inactive.Value);
+
+			bool isAimTypeBind = false;
+			bool isFakelagBind = false;
+			for (auto* pVar : tBind.m_vVars) {
+				if (pVar == &Vars::Aimbot::General::AimType) {
+					isAimTypeBind = true;
+					break;
+				}
+				else if (pVar == &Vars::Fakelag::Fakelag) {
+					isFakelagBind = true;
+					break;
+				}
+			}
+
+			if (tBind.m_bActive && isAimTypeBind) {
+				const char* aimTypeNames[] = { "Off", "Plain", "Smooth", "Silent", "Locking", "Assistive" };
+				int currentAimType = Vars::Aimbot::General::AimType.Value;
+				if (currentAimType >= 0 && currentAimType < 6) {
+					FText(aimTypeNames[currentAimType]);
+				} else {
+					FText("On");
+				}
+			} else if (tBind.m_bActive && isFakelagBind) {
+				const char* fakelagTypeNames[] = { "Off", "Plain", "Random", "Adaptive" };
+				int currentFakelagType = Vars::Fakelag::Fakelag.Value;
+				if (currentFakelagType >= 0 && currentFakelagType < 4) {
+					FText(fakelagTypeNames[currentFakelagType]);
+				} else {
+					FText("On");
+				}
+			} else {
+				FText(tBind.m_bActive ? "On" : "Off");
+			}
+
 			PopStyleColor();
 
 			if (m_bIsOpen)

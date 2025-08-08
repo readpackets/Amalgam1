@@ -843,7 +843,7 @@ namespace Vars
 			CVarValues(PlayerPath, "Player path", 0, VISUAL, nullptr,
 				"Off", "Line", "Separators", "Spaced", "Arrows", "Boxes", "Nitro");
 			CVarValues(ProjectilePath, "Projectile path", 0, VISUAL, nullptr,
-				"Off", "Line", "Separators", "Spaced", "Arrows", "Boxes");
+				"Off", "Line", "Separators", "Spaced", "Arrows", "Boxes", "Nitro");
 			CVarValues(TrajectoryPath, "Trajectory path", 0, VISUAL, nullptr,
 				"Off", "Line", "Separators", "Spaced", "Arrows", "Boxes");
 			CVarValues(ShotPath, "Shot path", 0, VISUAL, nullptr,
